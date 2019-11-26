@@ -6,4 +6,4 @@ echo "Server Started, bot will start soon ..."
 sleep 3
 
 echo "Bot Starting ..." 
-python3 ../bot/bot.py
+python3 ../bot/testClient.py
