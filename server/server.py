@@ -26,6 +26,11 @@ def main():
     print('Server shutting down ...')
 
 
+def printConnections():
+    for connection in connections:
+        print(connection)
+
+
 def initialiseSocket():
     # initialise socket
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -34,16 +39,16 @@ def initialiseSocket():
     # bind to given port & listen for connections
     s.bind((HOST, PORT))
 
+    print('Server live on port 5000. Awaiting connections ...')
     return s
 
 
 def listenForConnections(s):
     s.listen()
     while True:
-        time.sleep(2)
+        # time.sleep(2)
         conn, addr = s.accept()
         initialiseConnection(conn, addr)
-        print(connections)
 
 
 def initialiseConnection(conn, addr):
@@ -52,6 +57,8 @@ def initialiseConnection(conn, addr):
     connection.status
     connections.append(connection)
     threading.Thread(target=connection.listen).start()
+    # printConnections()
+    print(len(connections))
 
 
 # run program

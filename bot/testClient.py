@@ -39,7 +39,7 @@ def listen():
         message = buffer.decode()
         if ("MSG" in message):
             print("received-message")
-        print(buffer)
+        print(message)
 
 # send login data (customizable)
 
