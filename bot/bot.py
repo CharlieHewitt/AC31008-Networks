@@ -24,9 +24,20 @@ def getDetails():
 def connect():
     IRCSocket.connect((SERVER, PORT))
     
+#Send login data (customizable)
+def login():
+    IRCSocket.send("USER ProBot networksbot server ProBot\n".encode())
+    IRCSocket.send("NICK ProBot\n".encode())
+    #send_data("NICK " + nickname)
+
 # Hardcoded to join the channel #test
 def join():
     IRCSocket.send("JOIN #test\n".encode())
+
+#Respond to server pings
+def ping():
+    IRCSocket.send("PONG :pingisn".encode())
+    print("PONGED")
 
 # Listen to the server
 def listen():
@@ -34,7 +45,18 @@ def listen():
         buffer = IRCSocket.recv(1024)
         message = buffer.decode()
 
-        # Check for user commands
+        if("PING :" in message):
+            ping()
+
+        else:
+            respond(message)
+
+        # Print to console
+        print (buffer)
+
+# Respond to the message with appropriate response
+def respond(message):
+    # Check for user commands
         if ("!day" in message):
             today = date.today()
             IRCSocket.send(("PRIVMSG #test :The day today is - " + calendar.day_name[today.weekday()] + "\n").encode())
@@ -65,15 +87,6 @@ def listen():
 
             # Send the message with a random fact to the user
             IRCSocket.send(("PRIVMSG "+ message +" :Did you know - "+ arrayFacts[random.randint(0,4)] + "\n").encode())
-
-        # Print to console
-        print (buffer)
-        
-#Send login data (customizable)
-def login():
-    IRCSocket.send("USER ProBot networksbot server ProBot\n".encode())
-    IRCSocket.send("NICK ProBot\n".encode())
-    #send_data("NICK " + nickname)
   
 connect()
 login()
