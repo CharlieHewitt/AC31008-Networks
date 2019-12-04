@@ -16,6 +16,9 @@ CHANNEL = "#test"
 
 # Open the socket
 IRCSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def getDetails():
+    print("What is the name of the channel you want to join")
+    
 
 # Connect to the server
 def connect():
@@ -42,7 +45,7 @@ def listen():
             IRCSocket.send(("PRIVMSG #test :The time right now is - " + time + "\n").encode())
 
         # If the bot gets a private message
-        elif ("PRIVMSG Bot" in message):
+        elif ("PRIVMSG ProBot" in message):
 
             # Array of random facts
             arrayFacts = [
@@ -68,8 +71,8 @@ def listen():
         
 #Send login data (customizable)
 def login():
-    IRCSocket.send("USER bot networksbot server bot\n".encode())
-    IRCSocket.send("NICK Bot\n".encode())
+    IRCSocket.send("USER ProBot networksbot server ProBot\n".encode())
+    IRCSocket.send("NICK ProBot\n".encode())
     #send_data("NICK " + nickname)
   
 connect()
