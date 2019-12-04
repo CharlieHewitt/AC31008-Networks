@@ -24,9 +24,9 @@ PORT = 6667
 
 # dictionaries for efficient searching
 
-users = {}
-channels = {}
-connections = {}
+users = {}          # users[userName] = [connected channels]
+channels = {}       # channels[channelName] = [connected users]
+connections = {}    # connections[userName] = Connection (to send msgs ...)
 
 
 # Do proper exception handling / name limitation ...
@@ -72,16 +72,16 @@ def disconnectFromChannel(userName, channelName):
 
 # Send message to all users in a channel ( Add prefix/ who sent ...)
 
-
 def sendMessage(channelName, message):
     for userName in channels[channelName]:
         connections[userName].sendMessage(message)
+
+
 # - - - - - - - - - - -
 # Initial Server State
 # - - - - - - - - - - -
 
 # Initialise default channels here, maybe add from file later if useful but not needed
-
 
 def initialiseDefaultChannels():
     channels['#test'] = []
@@ -90,23 +90,22 @@ def initialiseDefaultChannels():
 
 # Dummy users for testing purposes
 
-
 def testInitialisation():
     initialiseDefaultChannels()
-    addUser('Rachel<3')
-    addUser('Rachel<34')
+    addUser('Holly<3')
+    addUser('Holly<34')
     addUser('Tom')
     addUser('Briaaaan')
-    addUser('Xirco')
-    connectToChannel('Xirco', '#test3')
+    addUser('Alfie')
+    connectToChannel('Alfie', '#test3')
     connectToChannel('Briaaaan', '#test')
     connectToChannel('Briaaaan', '#test3')
-    connectToChannel('Rachel<3', '#test')
-    connectToChannel('Rachel<34', '#test')
+    connectToChannel('Holly<3', '#test')
+    connectToChannel('Holly<34', '#test')
     connectToChannel('Tom', '#test')
     connectToChannel('Tom', '#test34')
     disconnectFromChannel('Tom', '#test34')
-    removeUser('Rachel<34')
+    removeUser('Holly<34')
     print('Server initialised in default state:')
     printChannels()
     printUsers()
@@ -116,6 +115,8 @@ def testInitialisation():
 # Server Status
 # - - - - - - - -
 
+# server status message posted every {frequency} seconds -- should be run on a seperate thread
+
 def serverStatus(frequency):
     while True:
         time.sleep(frequency)
@@ -123,10 +124,12 @@ def serverStatus(frequency):
         printChannels()
         printUsers()
         try:
-            connections['TinyTempah'].sendMessage('-- Status update live')
+            connections['JealousJohn'].sendMessage('-- Status update live')
         except:
-            print('\n-- update ping failed : TinyTempah not active')
+            print('\n-- update ping failed : JealousJohn not active')
 
+
+# List of channels + connected users
 
 def printChannels():
     print('\nChannels:\n')
@@ -134,6 +137,8 @@ def printChannels():
     for channel in channels:
         print(channel + ' (connected users: ' + str(channels[channel]) + ')')
 
+
+# List of users + channel connections
 
 def printUsers():
     print('\nUsers:\n')
@@ -188,7 +193,7 @@ class Connection:
 
                 time.sleep(20)
                 self.disconnectFromChannel('#test')
-                self.sendMessage('Hello there Obi-Wan')
+                self.sendMessage('Hello there')
 
         except ConnectionResetError:
             # clean up open channel/user connections
@@ -223,7 +228,7 @@ def listenForConnections(s):
     while True:
         # time.sleep(2)
         conn, addr = s.accept()
-        initialiseConnection(conn, addr, 'TinyTempah')
+        initialiseConnection(conn, addr, 'JealousJohn')
         time.sleep(5)
         printUsers()
 
