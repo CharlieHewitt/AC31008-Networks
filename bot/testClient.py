@@ -13,7 +13,7 @@ import time
 # vars specificying server
 
 SERVER = "127.0.0.1"
-PORT = 5000
+PORT = 6667
 CHANNEL = "#test"
 
 
