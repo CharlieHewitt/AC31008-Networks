@@ -31,6 +31,8 @@ connections = {}    # connections[userName] = Connection (to send msgs ...)
 
 # Do proper exception handling / name limitation ...
 
+# TODO: connections {} add + remove! (make sure removes are cleaned up on disconnect)
+
 def addUser(userName):
     if userName in users:
         print('Duplicate name exception, DO ERROR HANDLING -------------')
@@ -50,24 +52,22 @@ def removeUser(userName):
         del users[userName]
 
 
+# Add channel to user's connected channels & add user to channel's connected users
+
 def connectToChannel(userName, channelName):
     if userName in users and channelName in channels:
-        # add channel to users connected list
         users[userName].append(channelName)
-
-        # add user to channel's list of connected users
         channels[channelName].append(userName)
 
     # return success/fail??
 
 
+# Remove channel from user's connected channels & remove user from channel's connected users
+
 def disconnectFromChannel(userName, channelName):
     if userName in users and channelName in channels:
-        # remove user from channel
-        channels[channelName].remove(userName)
-
-        # remove channel from user's list of channels
         users[userName].remove(channelName)
+        channels[channelName].remove(userName)
 
 
 # Send message to all users in a channel ( Add prefix/ who sent ...)
@@ -126,16 +126,17 @@ def serverStatus(frequency):
         try:
             connections['JealousJohn'].sendMessage('-- Status update live')
         except:
-            print('\n-- update ping failed : JealousJohn not active')
+            print('\n-- status update ping failed : JealousJohn not active')
 
 
+# TODO: pad status message to be nicely formatted (userName = max 9 chars + channel?)
 # List of channels + connected users
 
 def printChannels():
     print('\nChannels:\n')
 
     for channel in channels:
-        print(channel + ' (connected users: ' + str(channels[channel]) + ')')
+        print(channel + '  connected users: ' + str(channels[channel]))
 
 
 # List of users + channel connections
@@ -143,7 +144,7 @@ def printChannels():
 def printUsers():
     print('\nUsers:\n')
     for user in users:
-        print(user + ' (connected to: ' + str(users[user]) + ')')
+        print(user + '  connected to: ' + str(users[user]))
 
 
 # - - - - - - - - -
@@ -198,6 +199,7 @@ class Connection:
         except ConnectionResetError:
             # clean up open channel/user connections
             removeUser(self.userName)
+
             print('Connection dropped by: ' + str(self.address))
 
 # - - - - - - - - - - - - - -
@@ -223,18 +225,19 @@ def initialiseSocket():
     return s
 
 
+# listen for & accept new connections
+
 def listenForConnections(s):
     s.listen()
     while True:
-        # time.sleep(2)
         conn, addr = s.accept()
         initialiseConnection(conn, addr, 'JealousJohn')
-        time.sleep(5)
-        printUsers()
+        time.sleep(2)
 
+
+# create Connection & listen for messages on seperate thread
 
 def initialiseConnection(conn, addr, userName):
-    # initialise Connection & start thread
     connection = Connection(conn, addr, userName)
     connections[userName] = connection
     threading.Thread(target=connection.listen).start()
