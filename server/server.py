@@ -10,11 +10,13 @@ import socket
 import string
 import threading
 import time
+import re
 
 # - - - - - - - -
 # Server Details
 # - - - - - - - -
 
+# change to "10.0.42.17" for vms
 HOST = 'localhost'
 PORT = 6667
 
@@ -31,15 +33,15 @@ connections = {}    # connections[userName] = Connection (to send msgs ...)
 
 # Do proper exception handling / name limitation ...
 
-# TODO: connections {} add + remove! (make sure removes are cleaned up on disconnect)
-
-def addUser(userName):
+def addUser(userName, connection):
     if userName in users:
         print('Duplicate name exception, DO ERROR HANDLING -------------')
-        return
+        return False
 
     # add user with empty channel list
     users[userName] = []
+    connections[userName] = connection
+    return True
 
 
 # Active channel connections are cleaned up on removeUser()
@@ -50,31 +52,56 @@ def removeUser(userName):
             for channel in users[userName]:
                 disconnectFromChannel(userName, channel)
         del users[userName]
+        del connections[userName]
 
 
 # Add channel to user's connected channels & add user to channel's connected users
 
 def connectToChannel(userName, channelName):
     if userName in users and channelName in channels:
-        users[userName].append(channelName)
-        channels[channelName].append(userName)
+        # user not connected to channel
+        if (not (userName in channels[channelName] and channelName in users[userName])):
+            users[userName].append(channelName)
+            channels[channelName].append(userName)
+            print('succesfully connected')
+            return True
+    print('failed to connect')
 
-    # return success/fail??
+    return False
 
 
 # Remove channel from user's connected channels & remove user from channel's connected users
 
 def disconnectFromChannel(userName, channelName):
+    # user & channel exist
     if userName in users and channelName in channels:
-        users[userName].remove(channelName)
-        channels[channelName].remove(userName)
+
+        # user connected to channel
+        if userName in channels[channelName] and channelName in users[userName]:
+            users[userName].remove(channelName)
+            channels[channelName].remove(userName)
+            return True
+
+    print('failed to disconnect from ' + channelName + ' because not connected')
+    return False
 
 
 # Send message to all users in a channel ( Add prefix/ who sent ...)
 
-def sendMessage(channelName, message):
-    for userName in channels[channelName]:
-        connections[userName].sendMessage(message)
+def sendMessage(recipient, message):
+
+    # channel
+    if '#' in recipient:
+        for userName in channels[recipient]:
+            print(recipient + " " + userName + " " +
+                  "attempting to send :" + message)
+            connections[userName].sendMessage(message)
+            print('sent')
+
+    # priv message to single user
+    else:
+        if(recipient in users):
+            connections[recipient].sendMessage(message)
 
 
 # - - - - - - - - - - -
@@ -92,23 +119,23 @@ def initialiseDefaultChannels():
 
 def testInitialisation():
     initialiseDefaultChannels()
-    addUser('Holly<3')
-    addUser('Holly<34')
-    addUser('Tom')
-    addUser('Briaaaan')
-    addUser('Alfie')
-    connectToChannel('Alfie', '#test3')
-    connectToChannel('Briaaaan', '#test')
-    connectToChannel('Briaaaan', '#test3')
-    connectToChannel('Holly<3', '#test')
-    connectToChannel('Holly<34', '#test')
-    connectToChannel('Tom', '#test')
-    connectToChannel('Tom', '#test34')
-    disconnectFromChannel('Tom', '#test34')
-    removeUser('Holly<34')
+    # addUser('Holly<3', None)
+    # addUser('Holly<34', None)
+    # addUser('Tom', None)
+    # addUser('Briaaaan', None)
+    # addUser('Alfie', None)
+    # connectToChannel('Alfie', '#test3')
+    # connectToChannel('Briaaaan', '#test')
+    # connectToChannel('Briaaaan', '#test3')
+    # connectToChannel('Holly<3', '#test')
+    # connectToChannel('Holly<34', '#test')
+    # connectToChannel('Tom', '#test')
+    # connectToChannel('Tom', '#test3')
+    # disconnectFromChannel('Tom', '#test3')
+    # removeUser('Holly<34')
     print('Server initialised in default state:')
-    printChannels()
-    printUsers()
+    # printChannels()
+    # printUsers()
 
 
 # - - - - - - - -
@@ -147,19 +174,168 @@ def printUsers():
         print(user + '  connected to: ' + str(users[user]))
 
 
+# - - - - - - - - - -
+# Message Information
+# - - - - - - - - - -
+
+# Connecting to server
+
+# every message \r\n
+# USER 'username' 'hostname' 'servername' 'realname'
+# NICK 'nickname' -> create user from this
+
+# PRIVMSG 'channelname' 'message'
+
+# JOIN 'channelname'
+
+# LEAVE 'channelname'
+
+# PING - connection figure it out
+# receive PONG :pingisn
+
+
+# dictionary storing regular expressions for message parsing
+
+def parseMessage(message, origin):
+
+    messages = message.split('\r\n')
+    for msg in messages:
+        print('message split as : ' + msg)
+        for expression in regex:
+            match = re.search(regex[expression], msg)
+
+            # IRC message - else ignore
+            if (match):
+                print('matched ' + expression)
+                groups = match.groups()
+
+                # message action
+                executeMessageHandler(expression, groups, origin)
+
+
+def executeMessageHandler(expression, groups, origin):
+    if (expression == 'user'):
+        handleUserMessage(groups, origin)
+
+    elif (expression == 'nick'):
+        handleNickMessage(groups, origin)
+
+    elif (expression == 'privmsg'):
+        handlePrivMessage(groups, origin)
+
+    elif (expression == 'join'):
+        handleJoinMessage(groups, origin)
+
+    elif (expression == 'leave'):
+        handleLeaveMessage(groups, origin)
+
+    else:
+        print('Error: no valid message handler')
+
+
+regex = {}
+
+regex['user'] = r'USER\s(.*)\s(.*)\s(.*)\s:(.*)'
+regex['nick'] = r'NICK\s(.*)'
+regex['privmsg'] = r'PRIVMSG\s(.*)\s:(.*)'
+regex['join'] = r'JOIN\s(.*)'
+regex['leave'] = r'LEAVE\s(.*)'
+
+
+def handleUserMessage(groups, origin):
+    if origin.userSet:
+        # 'ignore', duplicate USER message ...
+        return False  # ???
+    print('tuple: ' + groups[0])
+    origin.userName = groups[0]
+    origin.userSet = True
+    # + add userName to origin connection
+
+    if (origin.nickSet):
+        print('successfully connected')
+        success = addUser(origin.nickName, origin)
+        return success
+        # throw error &| close connection (depends on error type) -> ie duplicate name
+
+
+def handleNickMessage(groups, origin):
+    # add nickname to origin
+    # nick = groups(1)
+    alreadySet = origin.nickSet
+
+    origin.nickName = groups[0]
+    origin.nickSet = True
+
+    if (origin.userSet and not alreadySet):
+        print('successfully connected')
+        success = addUser(origin.nickName, origin)
+        return success
+
+    return True
+
+# TODO: setup private message channels
+
+
+def handlePrivMessage(groups, origin):
+    # user connected
+    if (origin.userSet and origin.nickSet):
+        sendMessage(groups[0], groups[1])
+        # TODO: return sendMessage>>>>?
+        return True
+    else:
+        # ignore as not connected
+        return False
+
+# TODO: handle replies
+
+
+def handleJoinMessage(groups, origin):
+    # user connected
+    print('handlejoin')
+    if (origin.userSet and origin.nickSet):
+        print(groups[0])
+        return origin.connectToChannel(groups[0])
+    else:
+        # ignore as not connected
+        return False
+
+
+def handleLeaveMessage(groups, origin):
+    # user connected
+    if (origin.userSet and origin.nickSet):
+        return origin.disconnectFromChannel(groups[0])
+    else:
+        # ignore as not connected
+        return False
+
+
+# def parseUserMessage(message):
+#     match = re.search(r'USER\s(.*)\s(.*)\s(.*)\s:(.*)', message)
+
+#     if (match):
+#         print(match)
+#         print(match.group())
+#         print(match.group(1))  # username
+#         print(match.group(2))  # hostname
+#         print(match.group(3))  # servername
+#         print(match.group(4))  # realname (prefixed by :)
+
+
 # - - - - - - - - -
 # Connection class
 # - - - - - - - - -
 
-# TODO: initialise userName in connection initialisation message, not in constructor / hardcoded!
-#       connections aren't 'active' in the chat server ecosystem until a user is created (which requites a valid name)
-
 class Connection:
     # Constructor
-    def __init__(self, conn, address, userName):
+    def __init__(self, conn, address):
         self.conn = conn
         self.address = address
-        self.userName = userName
+
+        # variables set by USER and NICK messages
+        self.userName = None
+        self.nickName = None
+        self.userSet = False
+        self.nickSet = False
 
     # toString
     def __str__(self):
@@ -175,26 +351,30 @@ class Connection:
         return self.conn.recv(1024)
 
     def connectToChannel(self, channelName):
-        connectToChannel(self.userName, channelName)
+        if (self.userName is None):
+            return False
+        print('connection attempting to connect to ' + channelName)
+        return connectToChannel(self.nickName, channelName)
 
     def disconnectFromChannel(self, channelName):
-        disconnectFromChannel(self.userName, channelName)
+        if (self.userName is None):
+            return False
+
+        return disconnectFromChannel(self.userName, channelName)
 
     def listen(self):
         try:
             while True:
-                time.sleep(2)
                 data = self.receive()
                 if data:
+                    strData = data.decode()
                     print('Received data from: ', self.address,
-                          'contents: ', data.decode())
-                    self.sendMessage(data)
-                addUser(self.userName)
-                self.connectToChannel('#test')
+                          'contents: ', strData)
 
-                time.sleep(20)
-                self.disconnectFromChannel('#test')
-                self.sendMessage('Hello there')
+                    # add splitting received messages by \r\n!
+                    parseMessage(strData, self)
+                    print(self.userName)
+                    self.sendMessage(data)
 
         except ConnectionResetError:
             # clean up open channel/user connections
@@ -231,15 +411,13 @@ def listenForConnections(s):
     s.listen()
     while True:
         conn, addr = s.accept()
-        initialiseConnection(conn, addr, 'JealousJohn')
-        time.sleep(2)
+        initialiseConnection(conn, addr)
 
 
 # create Connection & listen for messages on seperate thread
 
-def initialiseConnection(conn, addr, userName):
-    connection = Connection(conn, addr, userName)
-    connections[userName] = connection
+def initialiseConnection(conn, addr):
+    connection = Connection(conn, addr)
     threading.Thread(target=connection.listen).start()
 
 
