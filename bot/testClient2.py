@@ -37,16 +37,23 @@ def listen():
         time.sleep(5)
         buffer = IRCSocket.recv(1024)
         message = buffer.decode()
-        if ("MSG" in message):
-            print("received-message")
+        print("received-message")
         print(message)
+        IRCSocket.send("JOIN #test\n".encode())
+        # time.sleep(5)
+        IRCSocket.send(
+            "PRIVMSG #test :Hello I am Rowan".encode())
+        print('tried TO SEND')
+        # time.sleep(2)
+       # IRCSocket.send("LEAVE #test\r\n".encode())
+
 
 # send login data (customizable)
 
 
 def login():
-    IRCSocket.send("USER bot networksbot server :bot\r\n".encode())
-    IRCSocket.send("NICK Bot\r\n".encode())
+    IRCSocket.send("USER Rowan rowan sfs :Rowan\r\n".encode())
+    IRCSocket.send("NICK Rowan\r\n".encode())
     # send_data("NICK " + nickname)
 
 
