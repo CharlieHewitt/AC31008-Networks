@@ -119,23 +119,7 @@ def initialiseDefaultChannels():
 
 def testInitialisation():
     initialiseDefaultChannels()
-    # addUser('Holly<3', None)
-    # addUser('Holly<34', None)
-    # addUser('Tom', None)
-    # addUser('Briaaaan', None)
-    # addUser('Alfie', None)
-    # connectToChannel('Alfie', '#test3')
-    # connectToChannel('Briaaaan', '#test')
-    # connectToChannel('Briaaaan', '#test3')
-    # connectToChannel('Holly<3', '#test')
-    # connectToChannel('Holly<34', '#test')
-    # connectToChannel('Tom', '#test')
-    # connectToChannel('Tom', '#test3')
-    # disconnectFromChannel('Tom', '#test3')
-    # removeUser('Holly<34')
     print('Server initialised in default state:')
-    # printChannels()
-    # printUsers()
 
 
 # - - - - - - - -
@@ -200,13 +184,13 @@ def parseMessage(message, origin):
 
     messages = message.split('\r\n')
     for msg in messages:
-        print('message split as : ' + msg)
+        # print('message split as : ' + msg)
         for expression in regex:
             match = re.search(regex[expression], msg)
 
             # IRC message - else ignore
             if (match):
-                print('matched ' + expression)
+                # print('matched ' + expression)
                 groups = match.groups()
 
                 # message action
@@ -229,6 +213,12 @@ def executeMessageHandler(expression, groups, origin):
     elif (expression == 'leave'):
         handleLeaveMessage(groups, origin)
 
+    elif (expression == 'who'):
+        handleWhoMessage(groups, origin)
+
+    elif (expression == 'names'):
+        handleNamesMessage(groups, origin)
+
     else:
         print('Error: no valid message handler')
 
@@ -240,6 +230,9 @@ regex['nick'] = r'NICK\s(.*)'
 regex['privmsg'] = r'PRIVMSG\s(.*)\s:(.*)'
 regex['join'] = r'JOIN\s(.*)'
 regex['leave'] = r'LEAVE\s(.*)'
+regex['who'] = r'WHO\s(.*)'
+regex['names'] = r'NAMES\s(.*)'
+regex['mode'] = r'MODE\s(.*)'
 
 
 def handleUserMessage(groups, origin):
@@ -253,10 +246,14 @@ def handleUserMessage(groups, origin):
 
     if (origin.nickSet):
         print('successfully connected')
-        origin.sendMessage(':127.0.0.1' + ' 001 ' + origin.nickName + ' :Hi welcome to IRC\r\n')
-        origin.sendMessage(':127.0.0.1 002 ' + origin.nickName +  ':Your host is DESKTOP-BS338CC, running version team6.0.0.0.1 (alpha)\r\n')
-        origin.sendMessage(':127.0.0.1 003 ' + origin.nickName +  ':This server was created sometime in 2019\r\n')
-        origin.sendMessage(':127.0.0.1 004 ' + origin.nickName +  '127.0.0.1 0.0.0.1 o o\r\n' )
+        origin.sendMessage(':127.0.0.1' + ' 001 ' +
+                           origin.nickName + ' :Hi welcome to IRC\r\n')
+        origin.sendMessage(':127.0.0.1 002 ' + origin.nickName +
+                           ':Your host is DESKTOP-BS338CC, running version team6.0.0.0.1 (alpha)\r\n')
+        origin.sendMessage(':127.0.0.1 003 ' + origin.nickName +
+                           ':This server was created sometime in 2019\r\n')
+        origin.sendMessage(':127.0.0.1 004 ' +
+                           origin.nickName + '127.0.0.1 0.0.0.1 o o\r\n')
         success = addUser(origin.nickName, origin)
         return success
         # throw error &| close connection (depends on error type) -> ie duplicate name
@@ -267,6 +264,7 @@ def handleNickMessage(groups, origin):
     # nick = groups(1)
     alreadySet = origin.nickSet
 
+    # TODO: handle name change, or don't lol
     origin.nickName = groups[0]
     origin.nickSet = True
 
@@ -277,7 +275,7 @@ def handleNickMessage(groups, origin):
 
     return True
 
-# TODO: setup private message channels
+# TODO: sort priv message
 
 
 def handlePrivMessage(groups, origin):
@@ -301,22 +299,35 @@ def handleJoinMessage(groups, origin):
         connected = origin.connectToChannel(groups[0])
 
         if connected:
-            names = ''
-            for user in channels[groups[0]]:
-                names += (user + ' ')
-            names = names.rstrip()
-            origin.sendMessage(':127.0.0.1 331 ' + origin.nickName + ' ' + str(groups[0]) + ' :No topic is set\r\n')
-            origin.sendMessage(':127.0.0.1 352 ' + origin.nickName + ' ' + str(groups[0]) + origin.userName + ' 127.0.0.1 ' + 'charlielol ' + origin.nickName + ' :0 realname\r\n')
-            origin.sendMessage(':127.0.0.1 315 ' + origin.nickName + ' ' + str(groups[0]) + ' :End of WHO list\r\n')
+            origin.sendMessage(':127.0.0.1 331 ' + origin.nickName +
+                               ' ' + str(groups[0]) + ' :No topic is set\r\n')
+            handleNamesMessage(groups[0], origin)
 
-            #TODO: SORT OUT MESSAGES + HOSTNAME
-
-
+            # TODO: SORT OUT MESSAGES + HOSTNAME
 
         return connected
     else:
         # ignore as not connected
         return False
+
+
+def handleWhoMessage(groups, origin):
+    origin.sendMessage(':127.0.0.1 352 ' + origin.nickName + ' ' + str(
+        groups[0]) + origin.userName + ' 127.0.0.1 ' + 'server ' + origin.nickName + ' :0 realname\r\n')
+    origin.sendMessage(':127.0.0.1 315 ' + origin.nickName +
+                       ' ' + str(groups[0]) + ' :End of WHO list\r\n')
+
+
+def handleNamesMessage(groups, origin):
+    origin.sendMessage(':127.0.0.1 353 ' + origin.nickName + ' = ' + str(
+        groups[0]) + ':oneOfTheNames\r\n')
+    origin.sendMessage(':127.0.0.1 366 ' + origin.nickName +
+                       ' ' + str(groups[0]) + ' :End of NAMES list\r\n')
+
+
+def handleModeMessage(groups, origin):
+    origin.sendMessage(':127.0.0.1 324 ' + origin.nickName +
+                       ' ' + str(groups[0]) + ' +')
 
 
 def handleLeaveMessage(groups, origin):
