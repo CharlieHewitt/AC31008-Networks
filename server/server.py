@@ -17,11 +17,11 @@ import re
 # - - - - - - - -
 
 # change to "10.0.42.17" for vms
-HOST = 'localhost'
+HOST = '127.0.0.1'
 PORT = 6667
 
 # - - - - - - - - - - - - - - - - -
-# User and Channel Management
+# User and Channel Manag ement
 # - - - - - - - - - - - - - - - - -
 
 # dictionaries for efficient searching
@@ -253,6 +253,10 @@ def handleUserMessage(groups, origin):
 
     if (origin.nickSet):
         print('successfully connected')
+        origin.sendMessage(':127.0.0.1' + ' 001 ' + origin.nickName + ' :Hi welcome to IRC\r\n')
+        origin.sendMessage(':127.0.0.1 002 ' + origin.nickName +  ':Your host is DESKTOP-BS338CC, running version team6.0.0.0.1 (alpha)\r\n')
+        origin.sendMessage(':127.0.0.1 003 ' + origin.nickName +  ':This server was created sometime in 2019\r\n')
+        origin.sendMessage(':127.0.0.1 004 ' + origin.nickName +  '127.0.0.1 0.0.0.1 o o\r\n' )
         success = addUser(origin.nickName, origin)
         return success
         # throw error &| close connection (depends on error type) -> ie duplicate name
@@ -294,7 +298,22 @@ def handleJoinMessage(groups, origin):
     print('handlejoin')
     if (origin.userSet and origin.nickSet):
         print(groups[0])
-        return origin.connectToChannel(groups[0])
+        connected = origin.connectToChannel(groups[0])
+
+        if connected:
+            names = ''
+            for user in channels[groups[0]]:
+                names += (user + ' ')
+            names = names.rstrip()
+            origin.sendMessage(':127.0.0.1 331 ' + origin.nickName + ' ' + str(groups[0]) + ' :No topic is set\r\n')
+            origin.sendMessage(':127.0.0.1 352 ' + origin.nickName + ' ' + str(groups[0]) + origin.userName + ' 127.0.0.1 ' + 'charlielol ' + origin.nickName + ' :0 realname\r\n')
+            origin.sendMessage(':127.0.0.1 315 ' + origin.nickName + ' ' + str(groups[0]) + ' :End of WHO list\r\n')
+
+            #TODO: SORT OUT MESSAGES + HOSTNAME
+
+
+
+        return connected
     else:
         # ignore as not connected
         return False
@@ -343,6 +362,7 @@ class Connection:
 
     # send as bytes, returns num of bytes sent
     def sendMessage(self, message):
+        print('sending:' + str(message))
         message = str(message).encode()
         return self.conn.send(message)
 
