@@ -36,16 +36,21 @@ def listen():
     while (True):
         time.sleep(5)
         buffer = IRCSocket.recv(1024)
-        message = buffer.decode()
-        print("received-message")
-        print(message)
+        # message = buffer.decode()
+        # print("received-message")
+        # print(message)
         IRCSocket.send("JOIN #test\n".encode())
-        # time.sleep(5)
+        time.sleep(5)
         IRCSocket.send(
-            "PRIVMSG #test :Hello I am Rowan".encode())
+            "PRIVMSG #test :Hello I am Rowan\r\n".encode())
         print('tried TO SEND')
+        time.sleep(5)
+        IRCSocket.send("PRIVMSG Charlie :Hello I am Rowan the second\r\n".encode())
+        IRCSocket.send('PART #test\r\n'.encode())
+        time.sleep(10)
+
         # time.sleep(2)
-       # IRCSocket.send("LEAVE #test\r\n".encode())
+        # IRCSocket.send("LEAVE #test\r\n".encode())
 
 
 # send login data (customizable)
