@@ -22,17 +22,17 @@ def connect():
     
 #Send login data (customizable)
 def login():
-    IRCSocket.send("USER ProBot networksbot server ProBot\n".encode())
-    IRCSocket.send("NICK ProBot\n".encode())
+    IRCSocket.send("USER ProBot networksbot server :ProBot\r\n".encode())
+    IRCSocket.send("NICK ProBot\r\n".encode())
     #send_data("NICK " + nickname)
 
 # Hardcoded to join the channel #test
 def join():
-    IRCSocket.send("JOIN #test\n".encode())
+    IRCSocket.send("JOIN #test\r\n".encode())
 
 #Respond to server pings
 def ping():
-    IRCSocket.send("PONG :pingisn\n".encode())
+    IRCSocket.send("PONG :pingisn\r\n".encode())
     print("PONGED")
 
 # Listen to the server
@@ -59,12 +59,13 @@ def respond(message):
     # Check for user commands
     if ("!day" in message and "PRIVMSG ProBot" not in message):
         today = date.today()
-        IRCSocket.send(("PRIVMSG #test :The day today is - " + calendar.day_name[today.weekday()] + "\n").encode())
+        IRCSocket.send(("PRIVMSG #test :The day today is - " + calendar.day_name[today.weekday()] + "\r\n").encode())
+        print("Hi")
     
     elif ("!time" in message and "PRIVMSG ProBot" not in message):
         now = datetime.datetime.now()
         time = now.strftime("%H:%M:%S")
-        IRCSocket.send(("PRIVMSG #test :The time right now is - " + time + "\n").encode())
+        IRCSocket.send(("PRIVMSG #test :The time right now is - " + time + "\r\n").encode())
 
     # If the bot gets a private message
     elif ("PRIVMSG ProBot" in message or ("PRIVMSG ProBot" in message and "!" in message)):
@@ -83,10 +84,10 @@ def respond(message):
         end = '!'
 
         # Get Nickname
-        message = message[message.find(start)+len(start):message.find(end)]
+        username = message[message.find(start)+len(start):message.find(end)]
 
         # Send the message with a random fact to the user
-        IRCSocket.send(("PRIVMSG "+ message +" :Did you know - "+ arrayFacts[random.randint(0,4)] + "\n").encode())
+        IRCSocket.send(("PRIVMSG "+ username +" :Did you know - "+ arrayFacts[random.randint(0,4)] + "\r\n").encode())
 
 # Run the bot
 connect()
