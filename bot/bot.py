@@ -15,8 +15,6 @@ CHANNEL = "#test"
 
 # Open the socket
 IRCSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-def getDetails():
-    print("What is the name of the channel you want to join")
 
 # Connect to the server
 def connect():
@@ -34,7 +32,7 @@ def join():
 
 #Respond to server pings
 def ping():
-    IRCSocket.send("PONG :pingisn".encode())
+    IRCSocket.send("PONG :pingisn\n".encode())
     print("PONGED")
 
 # Listen to the server
@@ -59,17 +57,17 @@ def listen():
 def respond(message):
 
     # Check for user commands
-    if ("!day" in message):
+    if ("!day" in message and "PRIVMSG ProBot" not in message):
         today = date.today()
         IRCSocket.send(("PRIVMSG #test :The day today is - " + calendar.day_name[today.weekday()] + "\n").encode())
     
-    elif ("!time" in message):
+    elif ("!time" in message and "PRIVMSG ProBot" not in message):
         now = datetime.datetime.now()
         time = now.strftime("%H:%M:%S")
         IRCSocket.send(("PRIVMSG #test :The time right now is - " + time + "\n").encode())
 
     # If the bot gets a private message
-    elif ("PRIVMSG ProBot" in message):
+    elif ("PRIVMSG ProBot" in message or ("PRIVMSG ProBot" in message and "!" in message)):
 
         # Array of random facts
         arrayFacts = [
@@ -85,7 +83,7 @@ def respond(message):
         end = '!'
 
         # Get Nickname
-        message = message[message.find(start)+len(start):message.rfind(end)]
+        message = message[message.find(start)+len(start):message.find(end)]
 
         # Send the message with a random fact to the user
         IRCSocket.send(("PRIVMSG "+ message +" :Did you know - "+ arrayFacts[random.randint(0,4)] + "\n").encode())
