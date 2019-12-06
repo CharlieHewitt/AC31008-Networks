@@ -16,14 +16,8 @@ import re
 # Server Details
 # - - - - - - - -
 
-# TODO: change to "10.0.42.17" for vms
-HOST = '127.0.0.1'
+HOST = '10.0.42.17'
 PORT = 6667
-
-# TODO: Do proper exception handling / name limitation ...
-# Try catches p much everywhere so server doesn't crash if a client crashes! (ConnectionResetError)
-
-# TODO: Implement LIST if you can be arsed (simple list of channels just needs to be formatted)
 
 # - - - - - - - - - - - - - - - - -
 # User and Channel Manag ement
@@ -38,7 +32,15 @@ connections = {}    # connections[userName] = Connection (to send msgs ...)
 
 def addUser(userName, connection):
     if userName in users:
-        print('Duplicate name exception, DO ERROR HANDLING -------------') # TODO: add reply code on name taken!
+        print('username taken')
+        connection.sendMessage(
+            ':' + socket.gethostbyname() + ' 433 :' + userName + ' is already in use')
+        return False
+
+    if (userName.length > 9):
+        print('username too long')
+        connection.sendMessage(
+            ':' + socket.gethostbyname() + ' 432 :' + userName + ':nickName too long')
         return False
 
     # add user with empty channel list
@@ -60,8 +62,7 @@ def removeUser(userName):
 
 # Add channel to user's connected channels & add user to channel's connected users
 
-def connectToChannel(userName, channelName):
-    # user & channel exist
+def connectToChannel(userName, channelName, origin):
     if userName in users and channelName in channels:
         # user not already connected to channel
         if (not (userName in channels[channelName] and channelName in users[userName])):
@@ -69,7 +70,11 @@ def connectToChannel(userName, channelName):
             channels[channelName].append(userName)
             print('succesfully connected')
             return True
-    print('failed to connect')
+
+        else:
+            origin.sendMessage(':' + socket.gethostbyname() + ' 443 ' + userName + ' ' +
+                               channelName + ' :already in channel')
+            print('failed to connect')
 
     return False
 
@@ -84,7 +89,8 @@ def disconnectFromChannel(userName, channelName, reason):
         if userName in channels[channelName] and channelName in users[userName]:
 
             # message so clients know about the disconnection
-            message = ':' + userName + '!' + userName + '@' + socket.gethostname() + ' PART ' + channelName + ' ' + reason + '\r\n'
+            message = ':' + userName + '!' + userName + '@' + \
+                socket.gethostname() + ' PART ' + channelName + ' ' + reason + '\r\n'
             sendMessage(channelName, message, None)
 
             # disconnect
@@ -104,7 +110,7 @@ def sendMessage(recipient, message, sender):
     if '#' in recipient:
         for userName in channels[recipient]:
 
-            # duplicate message 
+            # duplicate message
             if (not userName == None and userName == sender):
                 continue
 
@@ -169,7 +175,7 @@ def printUsers():
         print(user + '  connected to: ' + str(users[user]))
 
 
-# - - - - - - - - - - - - - - 
+# - - - - - - - - - - - - - -
 # Message parsing & handling
 # - - - - - - - - - - - - - -
 
@@ -185,11 +191,10 @@ regex['part'] = r'PART\s(.*) (:.*)'
 regex['who'] = r'WHO\s(.*)'
 regex['names'] = r'NAMES\s(.*)'
 regex['mode'] = r'MODE\s(.*)'
-regex['ping'] = r'PING\s(.*)' 
-
-# TODO: quit? -> same use case as 'except ConnectionResetError'
+regex['ping'] = r'PING\s(.*)'
 
 # parse message & handle based on matching 'expression'
+
 
 def parseMessage(message, origin):
     messages = message.split('\r\n')
@@ -233,7 +238,7 @@ def executeMessageHandler(expression, groups, origin):
         handleModeMessage(groups, origin)
 
     elif (expression == 'ping'):
-        handlePingMessage(groups,origin)
+        handlePingMessage(groups, origin)
 
     else:
         print('Error: no valid message handler')
@@ -254,9 +259,9 @@ def handleUserMessage(groups, origin):
     if (origin.nickSet):
         print('successfully connected')
         origin.sendMessage(':' + socket.gethostname() + ' 001 ' +
-                           origin.nickName + ' :Hi welcome to IRC\r\n')
+                           origin.nickName + ' :Hi welcome to the Networks Assignment IRC Server\r\n')
         origin.sendMessage(':' + socket.gethostname() + ' 002 ' + origin.nickName +
-                           ' :Your host is DESKTOP-BS338CC, running version team6v0.0.0.1\r\n')
+                           ' :Your host is ' + socket.gethostbyname() + ', running version team6v0.0.0.1\r\n')
         origin.sendMessage(':' + socket.gethostname() + ' 003 ' + origin.nickName +
                            ' :This server was created sometime in 2019\r\n')
         origin.sendMessage(':' + socket.gethostname() + ' 004 ' +
@@ -269,31 +274,35 @@ def handleUserMessage(groups, origin):
 # NICK <nickname>
 # eg: NICK Charlie
 
+
 def handleNickMessage(groups, origin):
     # add nickname to origin
     # nick = groups(1)
     alreadySet = origin.nickSet
 
-    # TODO: handle name changes, or don't ...
-    origin.nickName = groups[0]
-    origin.nickSet = True
+    if not alreadySet:
+        origin.nickName = groups[0]
+        origin.nickSet = True
 
     if (origin.userSet and not alreadySet):
         print('successfully connected')
         success = addUser(origin.nickName, origin)
         return success
 
-    return True
+    return alreadySet
 
 # PRIVMSG <recipient> :<message>
 # recipient can be a channel (#test) or a single user (Charlie):
 # eg: PRIVMSG #test :Hello I am new here!   / PRIVMSG Charlie :Hello
 
+
 def handlePrivMessage(groups, origin):
     # user connected
     if (origin.userSet and origin.nickSet):
         recipient = groups[0]
-        message = ':' + origin.nickName + '!' + origin.userName + '@' + socket.gethostname() + ' PRIVMSG ' + recipient + ' ' + groups[1] + '\r\n'
+        message = ':' + origin.nickName + '!' + origin.userName + '@' + \
+            socket.gethostname() + ' PRIVMSG ' + recipient + \
+            ' ' + groups[1] + '\r\n'
 
         # channel
         if '#' in recipient:
@@ -302,7 +311,7 @@ def handlePrivMessage(groups, origin):
         else:
             if recipient in connections:
                 connections[recipient].sendMessage(message)
-        return True #TODO: ???
+        return True
     else:
         # ignore as not connected
         return False
@@ -311,8 +320,6 @@ def handlePrivMessage(groups, origin):
 # JOIN <channel>
 # eg: JOIN #test
 
-# TODO: diagnose double attempt connects by @testClient? seems irrelevant
-
 def handleJoinMessage(groups, origin):
     # user connected
     if (origin.userSet and origin.nickSet):
@@ -320,7 +327,8 @@ def handleJoinMessage(groups, origin):
 
         if connected:
             # TODO -- check if the hostname is correct here?
-            sendMessage(groups[0], ':' + origin.nickName + '!' + origin.userName + '@' + socket.gethostname() + ' JOIN ' + groups[0] + '\r\n', None)
+            sendMessage(groups[0], ':' + origin.nickName + '!' + origin.userName +
+                        '@' + socket.gethostname() + ' JOIN ' + groups[0] + '\r\n', None)
             origin.sendMessage(':' + socket.gethostname() + ' 331 ' + origin.nickName +
                                ' ' + str(groups[0]) + ' :No topic is set\r\n')
             handleNamesMessage(groups, origin)
@@ -331,8 +339,9 @@ def handleJoinMessage(groups, origin):
         return False
 
 # PART <channel>
-# eg: PART #test 
+# eg: PART #test
 # -> leave #test
+
 
 def handlePartMessage(groups, origin):
     # user connected
@@ -341,10 +350,12 @@ def handlePartMessage(groups, origin):
 
         # user connected & will be disconnected from channel
         if (origin.nickName in channels[channelName] and channelName in users[origin.nickName]):
-            message = ':' + origin.nickName + '!' + origin.userName + '@' + socket.gethostname() + ' PART ' + channelName + ' ' + groups[1] + '\r\n'
+            message = ':' + origin.nickName + '!' + origin.userName + '@' + \
+                socket.gethostname() + ' PART ' + channelName + \
+                ' ' + groups[1] + '\r\n'
             sendMessage(channelName, message, None)
             origin.disconnectFromChannel(channelName)
-            
+
     else:
         # ignore as not connected
         return False
@@ -354,15 +365,18 @@ def handlePartMessage(groups, origin):
 # -> list of users in #test (for client use)
 
 # TODO: replace 127.0.0.1 with host! eh -> ie clientside host ig
+
+
 def handleWhoMessage(groups, origin):
     origin.sendMessage(':' + socket.gethostname() + ' 352 ' + origin.nickName + ' ' + str(
-        groups[0]) + ' ' +  origin.userName + ' 127.0.0.1 ' + socket.gethostname() + ' ' + origin.nickName + ' H :0 ' + origin.realName + '\r\n')
+        groups[0]) + ' ' + origin.userName + ' ' + origin.addr[0] + ' + socket.gethostname() ' + ' ' + origin.nickName + ' H: 0 ' + origin.realName + '\r\n')
     origin.sendMessage(':' + socket.gethostname() + ' 315 ' + origin.nickName +
                        ' ' + str(groups[0]) + ' :End of WHO list\r\n')
 
 # NAMES <channel>
 # eg: NAMES #test
 # -> list of users in #test (for client use) TODO: explain difference between Names & Who
+
 
 def handleNamesMessage(groups, origin):
     channelName = str(groups[0])
@@ -386,7 +400,8 @@ def handleModeMessage(groups, origin):
 
 # TODO: figure out what 127.0.0.1 should be in both cases (miniiircd on vms)
 def handlePingMessage(groups, origin):
-    origin.sendMessage(':' + socket.gethostname() + ' PONG 127.0.0.1 :' + str(groups[0] + '\r\n'))
+    origin.sendMessage(':' + socket.gethostname() +
+                       ' PONG 127.0.0.1 :' + str(groups[0] + '\r\n'))
 
 
 # - - - - - - - - -
@@ -414,26 +429,40 @@ class Connection:
 
     # send message to 'connected client'
     def sendMessage(self, message):
-        print('sending:' + str(message))
-        message = str(message).encode()
-        self.conn.send(message)
+        try:
+            print('sending:' + str(message))
+            message = str(message).encode()
+            self.conn.send(message)
+
+        except ConnectionResetError:
+            raise(ConnectionResetError)
 
     # receive message from 'connected client'
     def receive(self):
-        return self.conn.recv(1024)
+        try:
+            return self.conn.recv(1024)
 
+        except ConnectionResetError:
+            raise(ConnectionResetError)
 
-    
     def connectToChannel(self, channelName):
-        if (not self.userSet or  not self.nickSet):
-            return False
-        return connectToChannel(self.nickName, channelName)
+        try:
+            if (not self.userSet or not self.nickSet):
+                return False
+            return connectToChannel(self.nickName, channelName, self)
+
+        except ConnectionResetError:
+            raise(ConnectionResetError)
 
     def disconnectFromChannel(self, channelName):
-        if (not self.userSet or not self.nickSet):
-            return False
+        try:
+            if (not self.userSet or not self.nickSet):
+                return False
 
-        return disconnectFromChannel(self.nickName, channelName, 'Leaving')
+            return disconnectFromChannel(self.nickName, channelName, 'Leaving')
+
+        except ConnectionResetError:
+            raise(ConnectionResetError)
 
     def listen(self):
         try:
@@ -450,12 +479,12 @@ class Connection:
         except ConnectionResetError:
             # clean up open channel/user connections
             removeUser(self.nickName)
-
             print('Connection dropped by: ' + str(self.address))
 
 # - - - - - - - - - - - - - -
 # Server/Socket Related Code
 # - - - - - - - - - - - - - -
+
 
 def main():
     # create default channels
